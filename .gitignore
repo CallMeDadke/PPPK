@@ -1,0 +1,103 @@
+# Operating System Files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# Temporary files
+*.swp
+*.*~
+*.tmp
+*.temp
+
+# IDEs and Editors
+.vscode/
+.vs/
+.idea/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# .NET Core / ASP.NET
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+# Build results
+[Dd]ebug/
+[Dd]ebugPublic/
+[Rr]elease/
+[Rr]eleases/
+x64/
+x86/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+build/
+bld/
+[Bb]in/
+[Oo]bj/
+
+# MSBuild Binary and Structured Log
+*.binlog
+msbuild.log
+msbuild.err
+msbuild.wrn
+
+# Entity Framework
+*.edmx.diagram
+*.edmx.sql
+
+# NuGet Packages
+*.nupkg
+**/[Pp]ackages/*
+!**/[Pp]ackages/build/
+**/packages.config
+
+# Secrets and Configuration
+appsettings.local.json
+appsettings.*.local.json
+appsettings.Development.json
+appsettings.Production.json
+connectionstrings.json
+secrets.json
+*.pfx
+*.p12
+
+# Medical System Specific
+**/uploads/
+**/medical-documents/
+**/patient-images/
+**/medical-images/
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+*.mdf
+*.ldf
+
+# Logs
+logs/
+*.log
+
+# Environment Variables
+.env
+.env.local
+.env.*.local
+
+# Python (if any scripts are added)
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+pip-log.txt
+pip-delete-this-directory.txt
