@@ -22,7 +22,6 @@
           <div class="info-item">
             <strong>Datum rođenja:</strong> {{ patient.datumRodenja }}
           </div>
-          <div class="info-item"><strong>Godine:</strong> {{ patientAge }}</div>
           <div class="info-item">
             <strong>Spol:</strong>
             {{ patient.spol }}
@@ -344,19 +343,6 @@ const prescriptionForm = ref({
 
 const patientId = route.params.id;
 const patient = computed(() => patientsStore.currentPatient);
-
-// Age calculation
-const patientAge = computed(() => {
-  if (!patient.value?.datumRodenja) return "N/A";
-  const today = new Date();
-  const birth = new Date(patient.value.datumRodenja);
-  let age = today.getFullYear() - birth.getFullYear();
-  const monthDiff = today.getMonth() - birth.getMonth();
-  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
-    age--;
-  }
-  return age;
-});
 
 const loadPatientData = async () => {
   try {
@@ -751,7 +737,9 @@ onMounted(async () => {
   font-weight: bold;
 }
 
-.form-group input {
+.form-group input,
+.form-group select,
+.form-group textarea {
   padding: 8px;
   border: 1px solid #ddd;
   border-radius: 4px;

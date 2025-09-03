@@ -26,10 +26,10 @@ export const patientService = {
     return response.data
   },
 
-  async searchPatients(oib = null, prezime = null) {
+  async searchPatients(oib = null, ime = null) {
     let params = new URLSearchParams()
     if (oib) params.append('oib', oib)
-    if (prezime) params.append('prezime', prezime)
+    if (ime) params.append('ime', ime)
     
     const response = await apiClient.get(`/Pacijenti/search?${params.toString()}`)
     return response.data.data

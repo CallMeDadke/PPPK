@@ -43,7 +43,7 @@
           <tr v-for="prescription in filteredPrescriptions" :key="prescription.receptId">
             <td>{{ getPatientName(prescription.pacijentId) }}</td>
             <td>{{ getPatientOIB(prescription.pacijentId) }}</td>
-            <td>{{ prescription.datumIzdavanja }}</td>
+            <td>{{ formatDisplayDate(prescription.datumIzdavanja) }}</td>
             <td>{{ prescription.stavke ? prescription.stavke.length : 0 }}</td>
             <td>
               <button @click="editPrescription(prescription)" class="btn btn-small">Uredi</button>
@@ -121,7 +121,7 @@
         <div class="modal-body">
           <div class="prescription-details">
             <p><strong>Pacijent:</strong> {{ getPatientName(viewingPrescription.pacijentId) }}</p>
-            <p><strong>Datum izdavanja:</strong> {{ viewingPrescription.datumIzdavanja }}</p>
+            <p><strong>Datum izdavanja:</strong> {{ formatDisplayDate(viewingPrescription.datumIzdavanja) }}</p>
             <h4>Lijekovi:</h4>
             <ul v-if="viewingPrescription.stavke && viewingPrescription.stavke.length > 0">
               <li v-for="stavka in viewingPrescription.stavke" :key="stavka.stavkaReceptaId">
@@ -193,10 +193,41 @@ const getPatientOIB = (pacijentId) => {
 
 const editPrescription = (prescription) => {
   isEditing.value = true
+  
+  // Format the date properly for HTML date input
+  let formattedDate = new Date().toISOString().split('T')[0];
+  if (prescription.datumIzdavanja) {
+    try {
+      let date;
+      if (prescription.datumIzdavanja.includes('T') || prescription.datumIzdavanja.includes('-')) {
+        // ISO format (2024-01-15T10:30:00 or 2024-01-15)
+        date = new Date(prescription.datumIzdavanja);
+      } else if (prescription.datumIzdavanja.includes('.')) {
+        // Croatian format (15.01.2024.)
+        const dateStr = prescription.datumIzdavanja.replace(/\.$/, ''); // Remove trailing dot
+        const parts = dateStr.split('.');
+        if (parts.length >= 3) {
+          const day = parseInt(parts[0]);
+          const month = parseInt(parts[1]) - 1; // Month is 0-indexed
+          const year = parseInt(parts[2]);
+          date = new Date(year, month, day);
+        }
+      } else {
+        date = new Date(prescription.datumIzdavanja);
+      }
+      
+      if (date && !isNaN(date.getTime())) {
+        formattedDate = date.toISOString().split('T')[0];
+      }
+    } catch (error) {
+      console.warn('Could not parse date:', prescription.datumIzdavanja);
+    }
+  }
+  
   currentPrescription.value = {
     receptId: prescription.receptId,
     pacijentId: prescription.pacijentId,
-    datumIzdavanja: prescription.datumIzdavanja ? prescription.datumIzdavanja.split('T')[0] : new Date().toISOString().split('T')[0],
+    datumIzdavanja: formattedDate,
     stavke: prescription.stavke && prescription.stavke.length > 0 
       ? prescription.stavke.map(s => ({ lijekId: s.lijekId, doziranje: s.doziranje }))
       : [{ lijekId: '', doziranje: '' }]
@@ -304,6 +335,35 @@ const clearFilters = () => {
   filteredPrescriptions.value = [...prescriptions.value]
 }
 
+const formatDisplayDate = (dateStr) => {
+  if (!dateStr) return '-';
+  
+  try {
+    let date;
+    if (dateStr.includes('T') || dateStr.includes('-')) {
+      // ISO format - parse directly
+      date = new Date(dateStr);
+    } else if (dateStr.includes('.')) {
+      // Already in Croatian format - return as is (remove trailing dot if present)
+      return dateStr.replace(/\.$/, '');
+    } else {
+      date = new Date(dateStr);
+    }
+    
+    if (date && !isNaN(date.getTime())) {
+      return date.toLocaleDateString('hr-HR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric'
+      });
+    }
+  } catch (error) {
+    console.warn('Could not format date:', dateStr);
+  }
+  
+  return dateStr; // Return original if parsing fails
+}
+
 onMounted(async () => {
   await loadData()
 })
@@ -402,8 +462,12 @@ onMounted(async () => {
 }
 
 .btn-primary {
-  background-color: #007bff;
+  background: #007bff;
   color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 4px;
+  cursor: pointer;
 }
 
 .btn-small {
@@ -468,7 +532,8 @@ onMounted(async () => {
 }
 
 .form-group input,
-.form-group select {
+.form-group select,
+.form-group textarea {
   width: 100%;
   padding: 8px;
   border: 1px solid #ddd;
@@ -497,9 +562,10 @@ onMounted(async () => {
 }
 
 .form-actions {
-  margin-top: 20px;
   display: flex;
   gap: 10px;
+  justify-content: flex-end;
+  margin-top: 20px;
 }
 
 .loading, .no-data {

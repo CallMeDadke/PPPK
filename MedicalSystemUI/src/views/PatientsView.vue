@@ -11,66 +11,86 @@
     <div class="search-section">
       <div class="search-filters">
         <div class="filter-group">
-          <input 
-            v-model="searchTerm" 
-            type="text" 
+          <input
+            v-model="searchTerm"
+            type="text"
             placeholder="Pretraži po imenu, prezimenu ili OIB-u"
             class="search-input"
-            @input="debouncedSearch"
-          >
+            @input="searchPatients"
+          />
         </div>
-        
+
         <div class="filter-group">
-          <select v-model="genderFilter" @change="searchPatients" class="filter-select">
+          <select
+            v-model="genderFilter"
+            @change="searchPatients"
+            class="filter-select"
+          >
             <option value="">Svi spolovi</option>
             <option value="Muško">Muško</option>
             <option value="Žensko">Žensko</option>
           </select>
         </div>
 
-
-        <button @click="clearFilters" class="btn btn-small">Očisti filtere</button>
+        <button @click="clearFilters" class="btn btn-small">
+          Očisti filtere
+        </button>
       </div>
     </div>
 
-    <!-- Add/Edit Form -->
-    <div v-if="showAddForm || editingPatient" class="form-section">
-      <h3>{{ editingPatient ? 'Uredi pacijenta' : 'Dodaj pacijenta' }}</h3>
-      <form @submit.prevent="savePatient">
-        <div class="form-group">
-          <label>Ime</label>
-          <input v-model="patientForm.ime" type="text" required>
+    <!-- Add/Edit Form Modal -->
+    <div v-if="showAddForm || editingPatient" class="modal-overlay" @click="cancelForm">
+      <div class="modal" @click.stop>
+        <div class="modal-header">
+          <h2>{{ editingPatient ? "Uredi pacijenta" : "Dodaj pacijenta" }}</h2>
+          <button @click="cancelForm" class="btn-close">×</button>
         </div>
-        
-        <div class="form-group">
-          <label>Prezime</label>
-          <input v-model="patientForm.prezime" type="text" required>
-        </div>
-        
-        <div class="form-group">
-          <label>OIB</label>
-          <input v-model="patientForm.oib" type="text" maxlength="11" required>
-        </div>
-        
-        <div class="form-group">
-          <label>Datum rođenja</label>
-          <input v-model="patientForm.datumRodenja" type="date" required>
-        </div>
-        
-        <div class="form-group">
-          <label>Spol</label>
-          <select v-model="patientForm.spol" required>
-            <option value="">Odaberite...</option>
-            <option value="Muško">Muško</option>
-            <option value="Žensko">Žensko</option>
-          </select>
-        </div>
-        
-        <div class="form-actions">
-          <button type="submit" class="btn btn-primary">Spremi</button>
-          <button type="button" @click="cancelForm" class="btn btn-secondary">Odustani</button>
-        </div>
-      </form>
+
+        <form @submit.prevent="savePatient" class="patient-form">
+          <div class="form-group">
+            <label>Ime:</label>
+            <input v-model="patientForm.ime" type="text" required />
+          </div>
+
+          <div class="form-group">
+            <label>Prezime:</label>
+            <input v-model="patientForm.prezime" type="text" required />
+          </div>
+
+          <div class="form-group">
+            <label>OIB:</label>
+            <input
+              v-model="patientForm.oib"
+              type="text"
+              maxlength="11"
+              required
+            />
+          </div>
+
+          <div class="form-group">
+            <label>Datum rođenja:</label>
+            <input v-model="patientForm.datumRodenja" type="date" required />
+          </div>
+
+          <div class="form-group">
+            <label>Spol:</label>
+            <select v-model="patientForm.spol" required>
+              <option value="">Odaberite...</option>
+              <option value="Muško">Muško</option>
+              <option value="Žensko">Žensko</option>
+            </select>
+          </div>
+
+          <div class="form-actions">
+            <button type="button" @click="cancelForm" class="btn-secondary">
+              Odustani
+            </button>
+            <button type="submit" class="btn-primary">
+              {{ editingPatient ? "Spremi" : "Dodaj" }}
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
 
     <!-- Patient List -->
@@ -97,8 +117,14 @@
               <td>{{ patient.datumRodenja }}</td>
               <td>{{ patient.spol }}</td>
               <td>
-                <button @click="editPatient(patient)" class="btn btn-small">Uredi</button>
-                <router-link :to="`/patients/${patient.pacijentId}`" class="btn btn-small">Profil</router-link>
+                <button @click="editPatient(patient)" class="btn btn-small">
+                  Uredi
+                </button>
+                <router-link
+                  :to="`/patients/${patient.pacijentId}`"
+                  class="btn btn-small"
+                  >Profil</router-link
+                >
               </td>
             </tr>
           </tbody>
@@ -109,137 +135,157 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue'
-import { usePatientsStore } from '@/stores/patients'
-import { patientService } from '@/services/patientService'
+import { ref, onMounted, computed } from "vue";
+import { usePatientsStore } from "@/stores/patients";
+import { patientService } from "@/services/patientService";
 
-const patientsStore = usePatientsStore()
-const showAddForm = ref(false)
-const editingPatient = ref(null)
-const searchTerm = ref('')
-const genderFilter = ref('')
+const patientsStore = usePatientsStore();
+const showAddForm = ref(false);
+const editingPatient = ref(null);
+const searchTerm = ref("");
+const genderFilter = ref("");
 
 const patientForm = ref({
-  ime: '',
-  prezime: '',
-  oib: '',
-  datumRodenja: '',
-  spol: ''
-})
+  ime: "",
+  prezime: "",
+  oib: "",
+  datumRodenja: "",
+  spol: "",
+});
 
-const patients = computed(() => patientsStore.patients)
-const loading = computed(() => patientsStore.loading)
+const patients = computed(() => patientsStore.patients);
+const loading = computed(() => patientsStore.loading);
 
 const loadPatients = async () => {
   try {
-    patientsStore.setLoading(true)
-    const data = await patientService.getAllPatients()
-    console.log('Loaded patients:', data);
-    patientsStore.setPatients(data)
+    patientsStore.setLoading(true);
+    const data = await patientService.getAllPatients();
+    console.log("Loaded patients:", data);
+    patientsStore.setPatients(data);
   } catch (error) {
-    console.error('Error loading patients:', error)
+    console.error("Error loading patients:", error);
   } finally {
-    patientsStore.setLoading(false)
+    patientsStore.setLoading(false);
   }
-}
-
+};
 
 const searchPatients = async () => {
   try {
-    patientsStore.setLoading(true)
-    
+    patientsStore.setLoading(true);
+
     // Start with all patients if no text search
-    let patientsData = []
+    let patientsData = [];
     if (searchTerm.value.trim()) {
       // Determine if search term is OIB (11 digits) or name
-      const isOIB = /^\d{11}$/.test(searchTerm.value.trim())
+      const isOIB = /^\d{11}$/.test(searchTerm.value.trim());
       if (isOIB) {
-        patientsData = await patientService.searchPatients(searchTerm.value.trim(), null)
+        patientsData = await patientService.searchPatients(
+          searchTerm.value.trim(),
+          null
+        );
       } else {
-        patientsData = await patientService.searchPatients(null, searchTerm.value.trim())
+        patientsData = await patientService.searchPatients(
+          null,
+          searchTerm.value.trim()
+        );
       }
     } else {
-      patientsData = await patientService.getAllPatients()
+      patientsData = await patientService.getAllPatients();
     }
-    
+
     // Apply additional filters on the frontend
-    let filtered = patientsData
-    
+    let filtered = patientsData;
+
     // Filter by gender
     if (genderFilter.value) {
-      filtered = filtered.filter(p => p.spol === genderFilter.value)
+      filtered = filtered.filter((p) => p.spol === genderFilter.value);
     }
-    
-    
+
     // Enhanced text search that includes first name
     if (searchTerm.value.trim() && patientsData.length > 0) {
-      const searchLower = searchTerm.value.toLowerCase()
-      filtered = filtered.filter(p => {
-        const fullName = `${p.ime} ${p.prezime}`.toLowerCase()
-        const oib = p.oib || ''
-        return fullName.includes(searchLower) || 
-               oib.includes(searchLower) ||
-               p.ime.toLowerCase().includes(searchLower) ||
-               p.prezime.toLowerCase().includes(searchLower)
-      })
+      const searchLower = searchTerm.value.toLowerCase();
+      filtered = filtered.filter((p) => {
+        const fullName = `${p.ime} ${p.prezime}`.toLowerCase();
+        const oib = p.oib || "";
+        return (
+          fullName.includes(searchLower) ||
+          oib.includes(searchLower) ||
+          p.ime.toLowerCase().includes(searchLower) ||
+          p.prezime.toLowerCase().includes(searchLower)
+        );
+      });
     }
-    
-    patientsStore.setPatients(filtered)
+
+    patientsStore.setPatients(filtered);
   } catch (error) {
-    console.error('Error searching patients:', error)
+    console.error("Error searching patients:", error);
   } finally {
-    patientsStore.setLoading(false)
+    patientsStore.setLoading(false);
   }
-}
+};
 
 const savePatient = async () => {
   try {
     if (editingPatient.value) {
-      const updated = await patientService.updatePatient(editingPatient.value.pacijentId, patientForm.value)
-      patientsStore.updatePatient(updated)
+      const updated = await patientService.updatePatient(
+        editingPatient.value.pacijentId,
+        patientForm.value
+      );
+      patientsStore.updatePatient(updated);
     } else {
-      const newPatient = await patientService.createPatient(patientForm.value)
-      patientsStore.addPatient(newPatient)
+      const newPatient = await patientService.createPatient(patientForm.value);
+      patientsStore.addPatient(newPatient);
     }
-    cancelForm()
+    cancelForm();
   } catch (error) {
-    console.error('Error saving patient:', error)
+    console.error("Error saving patient:", error);
   }
-}
+};
 
 const editPatient = (patient) => {
-  editingPatient.value = patient
+  editingPatient.value = patient;
+  
+  // Format the date properly for HTML date input
+  let formattedDate = "";
+  if (patient.datumRodenja) {
+    const date = new Date(patient.datumRodenja);
+    if (!isNaN(date.getTime())) {
+      // Format as YYYY-MM-DD for HTML date input
+      formattedDate = date.toISOString().split('T')[0];
+    }
+  }
+  
   patientForm.value = {
     ime: patient.ime,
     prezime: patient.prezime,
     oib: patient.oib,
-    datumRodenja: patient.datumRodenja ? patient.datumRodenja.split('T')[0] : '',
-    spol: patient.spol
-  }
-  showAddForm.value = false
-}
+    datumRodenja: formattedDate,
+    spol: patient.spol,
+  };
+  showAddForm.value = false;
+};
 
 const cancelForm = () => {
-  showAddForm.value = false
-  editingPatient.value = null
+  showAddForm.value = false;
+  editingPatient.value = null;
   patientForm.value = {
-    ime: '',
-    prezime: '',
-    oib: '',
-    datumRodenja: '',
-    spol: ''
-  }
-}
+    ime: "",
+    prezime: "",
+    oib: "",
+    datumRodenja: "",
+    spol: "",
+  };
+};
 
 const clearFilters = () => {
-  searchTerm.value = ''
-  genderFilter.value = ''
-  loadPatients()
-}
+  searchTerm.value = "";
+  genderFilter.value = "";
+  loadPatients();
+};
 
 onMounted(async () => {
-  await loadPatients()
-})
+  await loadPatients();
+});
 </script>
 
 <style scoped>
@@ -288,26 +334,62 @@ onMounted(async () => {
   }
 }
 
-.form-section {
-  background: #f9f9f9;
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.modal {
+  background: white;
   padding: 20px;
   border-radius: 8px;
-  margin-bottom: 30px;
+  width: 90%;
+  max-width: 600px;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.btn-close {
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+}
+
+.patient-form {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
 }
 
 .form-group {
-  margin-bottom: 15px;
+  display: flex;
+  flex-direction: column;
 }
 
 .form-group label {
-  display: block;
   margin-bottom: 5px;
   font-weight: bold;
 }
 
 .form-group input,
-.form-group select {
-  width: 100%;
+.form-group select,
+.form-group textarea {
   padding: 8px;
   border: 1px solid #ddd;
   border-radius: 4px;
@@ -316,6 +398,8 @@ onMounted(async () => {
 .form-actions {
   display: flex;
   gap: 10px;
+  justify-content: flex-end;
+  margin-top: 20px;
 }
 
 .patient-table {
@@ -347,13 +431,21 @@ onMounted(async () => {
 }
 
 .btn-primary {
-  background-color: #007bff;
+  background: #007bff;
   color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 4px;
+  cursor: pointer;
 }
 
 .btn-secondary {
-  background-color: #6c757d;
+  background: #6c757d;
   color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 4px;
+  cursor: pointer;
 }
 
 .btn-small {

@@ -60,9 +60,9 @@
           </div>
 
           <div class="form-group">
-            <label>Datum i vrijeme:</label>
+            <label>Datum:</label>
             <input
-              type="datetime-local"
+              type="date"
               v-model="form.datumPregleda"
               required
             />
@@ -122,10 +122,10 @@
         </thead>
         <tbody>
           <tr v-for="examination in examinations" :key="examination.pregledId">
-            <td>{{ examination.datumPregleda }}</td>
+            <td>{{ formatDisplayDate(examination.datumPregleda) }}</td>
             <td>{{ getPatientName(examination.pacijentId) }}</td>
             <td>{{ examination.doktor || "-" }}</td>
-            <td>{{ getExaminationType(examination.vrstaPregledaId) }}</td>
+            <td>{{ getExaminationType(examination.vrstaPregledaId || examination.vrstaPregleda) }}</td>
             <td class="actions">
               <button @click="editExamination(examination)" class="btn-edit">
                 Uredi
@@ -277,13 +277,42 @@ const editExamination = async (examination) => {
     typeCode = typeMapping[examination.vrstaPregledaId] || '';
   }
   
+  // Format the date properly for datetime-local input
+  let formattedDate = "";
+  if (examination.datumPregleda) {
+    try {
+      // Handle both ISO date format and dd.MM.yyyy format
+      let date;
+      if (examination.datumPregleda.includes('T') || examination.datumPregleda.includes('-')) {
+        // ISO format (2024-01-15T10:30:00 or 2024-01-15)
+        date = new Date(examination.datumPregleda);
+      } else if (examination.datumPregleda.includes('.')) {
+        // Croatian format (15.01.2024.)
+        const dateStr = examination.datumPregleda.replace(/\.$/, ''); // Remove trailing dot
+        const parts = dateStr.split('.');
+        if (parts.length >= 3) {
+          const day = parseInt(parts[0]);
+          const month = parseInt(parts[1]) - 1; // Month is 0-indexed
+          const year = parseInt(parts[2]);
+          date = new Date(year, month, day);
+        }
+      } else {
+        date = new Date(examination.datumPregleda);
+      }
+      
+      if (date && !isNaN(date.getTime())) {
+        formattedDate = date.toISOString().slice(0, 10);
+      }
+    } catch (error) {
+      console.warn('Could not parse date:', examination.datumPregleda);
+    }
+  }
+  
   form.value = {
     pacijentId: examination.pacijentId,
     doktorId: examination.doktorId || '',
     vrstaPregleda: typeCode,
-    datumPregleda: new Date(examination.datumPregleda)
-      .toISOString()
-      .slice(0, 16),
+    datumPregleda: formattedDate,
   };
   showAddForm.value = true;
 };
@@ -308,16 +337,65 @@ const getPatientName = (patientId) => {
   return patient ? `${patient.ime} ${patient.prezime}` : "N/A";
 };
 
-const getExaminationType = (typeId) => {
-  // Map type ID to display name
-  const typeMapping = {
-    1: 'Opći pregled', 2: 'Analiza krvi', 3: 'Rentgen', 4: 'CT pregled', 
-    5: 'MRI pregled', 6: 'Ultrazvuk', 7: 'EKG', 8: 'Echokardiogram',
-    9: 'Pregled očiju', 10: 'Dermatološki pregled', 11: 'Stomatološki pregled',
-    12: 'Mamografija', 13: 'Neurološki pregled'
-  };
-  return typeMapping[typeId] || 'Nepoznat tip';
+const getExaminationType = (typeIdOrCode) => {
+  // Handle both ID numbers and string codes
+  if (typeof typeIdOrCode === 'string') {
+    // Map codes to display names
+    const codeMapping = {
+      'GP': 'Opći pregled', 'KRV': 'Analiza krvi', 'X-RAY': 'Rentgen', 'CT': 'CT pregled',
+      'MR': 'MRI pregled', 'ULTRA': 'Ultrazvuk', 'EKG': 'EKG', 'ECHO': 'Echokardiogram',
+      'EYE': 'Pregled očiju', 'DERM': 'Dermatološki pregled', 'DENTA': 'Stomatološki pregled',
+      'MAMMO': 'Mamografija', 'NEURO': 'Neurološki pregled'
+    };
+    return codeMapping[typeIdOrCode] || typeIdOrCode || 'Nepoznat tip';
+  } else {
+    // Map type ID to display name
+    const typeMapping = {
+      1: 'Opći pregled', 2: 'Analiza krvi', 3: 'Rentgen', 4: 'CT pregled', 
+      5: 'MRI pregled', 6: 'Ultrazvuk', 7: 'EKG', 8: 'Echokardiogram',
+      9: 'Pregled očiju', 10: 'Dermatološki pregled', 11: 'Stomatološki pregled',
+      12: 'Mamografija', 13: 'Neurološki pregled'
+    };
+    return typeMapping[typeIdOrCode] || 'Nepoznat tip';
+  }
 };
+
+const formatDisplayDate = (dateStr) => {
+  if (!dateStr) return '-';
+  
+  try {
+    let date;
+    if (dateStr.includes('T') || dateStr.includes('-')) {
+      // ISO format
+      date = new Date(dateStr);
+    } else if (dateStr.includes('.')) {
+      // Croatian format (15.01.2024.)
+      const cleanStr = dateStr.replace(/\.$/, ''); // Remove trailing dot
+      const parts = cleanStr.split('.');
+      if (parts.length >= 3) {
+        const day = parseInt(parts[0]);
+        const month = parseInt(parts[1]) - 1; // Month is 0-indexed
+        const year = parseInt(parts[2]);
+        date = new Date(year, month, day);
+      }
+    } else {
+      date = new Date(dateStr);
+    }
+    
+    if (date && !isNaN(date.getTime())) {
+      return date.toLocaleDateString('hr-HR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric'
+      });
+    }
+  } catch (error) {
+    console.warn('Could not format date:', dateStr);
+  }
+  
+  return dateStr; // Return original if parsing fails
+};
+
 
 onMounted(async () => {
   await loadData();
