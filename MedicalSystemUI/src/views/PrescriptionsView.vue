@@ -196,7 +196,7 @@ const editPrescription = (prescription) => {
   currentPrescription.value = {
     receptId: prescription.receptId,
     pacijentId: prescription.pacijentId,
-    datumIzdavanja: prescription.datumIzdavanja,
+    datumIzdavanja: prescription.datumIzdavanja ? prescription.datumIzdavanja.split('T')[0] : new Date().toISOString().split('T')[0],
     stavke: prescription.stavke && prescription.stavke.length > 0 
       ? prescription.stavke.map(s => ({ lijekId: s.lijekId, doziranje: s.doziranje }))
       : [{ lijekId: '', doziranje: '' }]

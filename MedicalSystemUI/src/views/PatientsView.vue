@@ -209,7 +209,13 @@ const savePatient = async () => {
 
 const editPatient = (patient) => {
   editingPatient.value = patient
-  patientForm.value = { ...patient }
+  patientForm.value = {
+    ime: patient.ime,
+    prezime: patient.prezime,
+    oib: patient.oib,
+    datumRodenja: patient.datumRodenja ? patient.datumRodenja.split('T')[0] : '',
+    spol: patient.spol
+  }
   showAddForm.value = false
 }
 

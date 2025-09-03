@@ -23,8 +23,8 @@
               <option value="">Odaberite pacijenta</option>
               <option
                 v-for="patient in patients"
-                :key="patient.id"
-                :value="patient.id"
+                :key="patient.pacijentId"
+                :value="patient.pacijentId"
               >
                 {{ patient.ime }} {{ patient.prezime }} ({{ patient.oib }})
               </option>
@@ -125,7 +125,7 @@
             <td>{{ examination.datumPregleda }}</td>
             <td>{{ getPatientName(examination.pacijentId) }}</td>
             <td>{{ examination.doktor || "-" }}</td>
-            <td>{{ getExaminationType(examination.vrstaPregleda) }}</td>
+            <td>{{ getExaminationType(examination.vrstaPregledaId) }}</td>
             <td class="actions">
               <button @click="editExamination(examination)" class="btn-edit">
                 Uredi
@@ -264,12 +264,23 @@ const saveExamination = async () => {
   }
 };
 
-const editExamination = (examination) => {
+const editExamination = async (examination) => {
   editingExamination.value = examination;
+  
+  // Get the examination type code from the type ID
+  let typeCode = '';
+  if (examination.vrstaPregledaId) {
+    const typeMapping = {
+      1: 'GP', 2: 'KRV', 3: 'X-RAY', 4: 'CT', 5: 'MR', 6: 'ULTRA',
+      7: 'EKG', 8: 'ECHO', 9: 'EYE', 10: 'DERM', 11: 'DENTA', 12: 'MAMMO', 13: 'NEURO'
+    };
+    typeCode = typeMapping[examination.vrstaPregledaId] || '';
+  }
+  
   form.value = {
     pacijentId: examination.pacijentId,
-    doktorId: examination.doktorId,
-    vrstaPregleda: examination.vrstaPregleda,
+    doktorId: examination.doktorId || '',
+    vrstaPregleda: typeCode,
     datumPregleda: new Date(examination.datumPregleda)
       .toISOString()
       .slice(0, 16),
@@ -297,9 +308,15 @@ const getPatientName = (patientId) => {
   return patient ? `${patient.ime} ${patient.prezime}` : "N/A";
 };
 
-const getExaminationType = (typeCode) => {
-  const type = examinationTypes.value.find((t) => t.kod === typeCode);
-  return type ? type.naziv : typeCode;
+const getExaminationType = (typeId) => {
+  // Map type ID to display name
+  const typeMapping = {
+    1: 'Opći pregled', 2: 'Analiza krvi', 3: 'Rentgen', 4: 'CT pregled', 
+    5: 'MRI pregled', 6: 'Ultrazvuk', 7: 'EKG', 8: 'Echokardiogram',
+    9: 'Pregled očiju', 10: 'Dermatološki pregled', 11: 'Stomatološki pregled',
+    12: 'Mamografija', 13: 'Neurološki pregled'
+  };
+  return typeMapping[typeId] || 'Nepoznat tip';
 };
 
 onMounted(async () => {
