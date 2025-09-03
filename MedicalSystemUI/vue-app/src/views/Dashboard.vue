@@ -28,28 +28,81 @@
         <router-link to="/examinations" class="btn btn-secondary">
           Dodaj pregled
         </router-link>
+        <router-link to="/prescriptions" class="btn btn-secondary">
+          Dodaj recept
+        </router-link>
+      </div>
+    </div>
+
+    <div class="export-section">
+      <h2>Izvoz podataka (CSV)</h2>
+      <div class="export-buttons">
+        <button @click="exportData('patients')" class="btn btn-export" :disabled="exporting">
+          {{ exporting === 'patients' ? 'Izvozi...' : 'Izvozi pacijente' }}
+        </button>
+        <button @click="exportData('examinations')" class="btn btn-export" :disabled="exporting">
+          {{ exporting === 'examinations' ? 'Izvozi...' : 'Izvozi preglede' }}
+        </button>
+        <button @click="exportData('prescriptions')" class="btn btn-export" :disabled="exporting">
+          {{ exporting === 'prescriptions' ? 'Izvozi...' : 'Izvozi recepte' }}
+        </button>
+        <button @click="exportData('history')" class="btn btn-export" :disabled="exporting">
+          {{ exporting === 'history' ? 'Izvozi...' : 'Izvozi povijest bolesti' }}
+        </button>
       </div>
     </div>
   </div>
 </template>
 
 <script>
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { usePatientsStore } from '@/stores/patients'
 import { useExaminationsStore } from '@/stores/examinations'
+import { exportService } from '@/services/exportService'
 
 export default {
   name: 'DashboardView',
   setup() {
     const patientsStore = usePatientsStore()
     const examinationsStore = useExaminationsStore()
+    const exporting = ref(null)
     
     const patientCount = computed(() => patientsStore.patientCount)
     const examinationCount = computed(() => examinationsStore.examinationCount)
     
+    const exportData = async (type) => {
+      exporting.value = type
+      try {
+        switch (type) {
+          case 'patients':
+            await exportService.exportPatients()
+            break
+          case 'examinations':
+            await exportService.exportExaminations()
+            break
+          case 'prescriptions':
+            await exportService.exportPrescriptions()
+            break
+          case 'history':
+            await exportService.exportMedicalHistory()
+            break
+          default:
+            throw new Error('Nepoznata vrsta izvoza')
+        }
+        // Optional: show success message
+      } catch (error) {
+        console.error('Greška pri izvozu:', error)
+        alert('Greška pri izvozu podataka')
+      } finally {
+        exporting.value = null
+      }
+    }
+    
     return {
       patientCount,
-      examinationCount
+      examinationCount,
+      exporting,
+      exportData
     }
   }
 }
@@ -90,6 +143,20 @@ export default {
   margin-top: 10px;
 }
 
+.export-section {
+  margin-top: 40px;
+  padding: 20px;
+  background-color: #f8f9fa;
+  border-radius: 8px;
+}
+
+.export-buttons {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 10px;
+  margin-top: 10px;
+}
+
 .btn {
   padding: 10px 20px;
   text-decoration: none;
@@ -107,7 +174,19 @@ export default {
   color: white;
 }
 
-.btn:hover {
+.btn-export {
+  background-color: #28a745;
+  color: white;
+  border: none;
+  cursor: pointer;
+}
+
+.btn-export:disabled {
+  background-color: #6c757d;
+  cursor: not-allowed;
+}
+
+.btn:hover:not(:disabled) {
   opacity: 0.8;
 }
 </style>

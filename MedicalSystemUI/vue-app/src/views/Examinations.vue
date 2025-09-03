@@ -233,21 +233,21 @@ export default {
 
     async saveExamination() {
       try {
-        const examinationData = {
-          ...this.form,
-          datumPregleda: new Date(this.form.datumPregleda).toISOString(),
-        };
+        // const examinationData = {
+        //   ...this.form,
+        //   datumPregleda: new Date(this.form.datumPregleda).toISOString(),
+        // };
 
-        let savedExamination;
+        // let savedExamination;
         if (this.editingExamination) {
-          savedExamination = await examinationService.updateExamination(
-            this.editingExamination.pregledId,
-            examinationData
-          );
+          //   savedExamination = await examinationService.updateExamination(
+          //     this.editingExamination.pregledId,
+          //     examinationData
+          //   );
         } else {
-          savedExamination = await examinationService.createExamination(
-            examinationData
-          );
+          //   savedExamination = await examinationService.createExamination(
+          //     examinationData
+          //   );
         }
 
         // File upload placeholder - in real implementation, files would be uploaded to the server

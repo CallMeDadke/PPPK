@@ -7,15 +7,37 @@
       </button>
     </div>
 
-    <!-- Search -->
+    <!-- Search and Filters -->
     <div class="search-section">
-      <input 
-        v-model="searchTerm" 
-        type="text" 
-        placeholder="Pretraži po prezimenu ili OIB-u"
-        class="search-input"
-        @input="searchPatients"
-      >
+      <div class="search-filters">
+        <div class="filter-group">
+          <input 
+            v-model="searchTerm" 
+            type="text" 
+            placeholder="Pretraži po imenu, prezimenu ili OIB-u"
+            class="search-input"
+            @input="searchPatients"
+          >
+        </div>
+        
+        <div class="filter-group">
+          <select v-model="genderFilter" @change="searchPatients" class="filter-select">
+            <option value="">Svi spolovi</option>
+            <option value="Muško">Muško</option>
+            <option value="Žensko">Žensko</option>
+          </select>
+        </div>
+
+        <div class="filter-group">
+          <input type="number" v-model="ageFrom" placeholder="Godine od" @input="searchPatients" class="age-input">
+        </div>
+
+        <div class="filter-group">
+          <input type="number" v-model="ageTo" placeholder="Godine do" @input="searchPatients" class="age-input">
+        </div>
+
+        <button @click="clearFilters" class="btn btn-small">Očisti filtere</button>
+      </div>
     </div>
 
     <!-- Add/Edit Form -->
@@ -61,7 +83,7 @@
     <!-- Patient List -->
     <div class="patient-list">
       <div v-if="loading">Učitavanje...</div>
-      <div v-else-if="!patients">Nema pacijenata</div>
+      <div v-else-if="!patients || patients.length === 0">Nema pacijenata</div>
       <div v-else>
         <table class="patient-table">
           <thead>
@@ -105,6 +127,9 @@ export default {
     const showAddForm = ref(false)
     const editingPatient = ref(null)
     const searchTerm = ref('')
+    const genderFilter = ref('')
+    const ageFrom = ref('')
+    const ageTo = ref('')
     
     const patientForm = ref({
       ime: '',
@@ -125,8 +150,8 @@ export default {
       try {
         patientsStore.setLoading(true)
         const data = await patientService.getAllPatients()
-		console.log(data.data);
-        patientsStore.setPatients(data.data)
+        console.log('Loaded patients:', data);
+        patientsStore.setPatients(data)
       } catch (error) {
         console.error('Error loading patients:', error)
       } finally {
@@ -134,16 +159,61 @@ export default {
       }
     }
 
-    const searchPatients = async () => {
-      if (!searchTerm.value.trim()) {
-        await loadPatients()
-        return
+    const calculateAge = (birthDate) => {
+      const today = new Date()
+      const birth = new Date(birthDate)
+      let age = today.getFullYear() - birth.getFullYear()
+      const monthDiff = today.getMonth() - birth.getMonth()
+      if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+        age--
       }
-      
+      return age
+    }
+
+    const searchPatients = async () => {
       try {
         patientsStore.setLoading(true)
-        const data = await patientService.searchPatients(searchTerm.value)
-        patientsStore.setPatients(data)
+        
+        // Start with all patients if no text search
+        let patientsData = []
+        if (searchTerm.value.trim()) {
+          patientsData = await patientService.searchPatients(searchTerm.value)
+        } else {
+          patientsData = await patientService.getAllPatients()
+        }
+        
+        // Apply additional filters on the frontend
+        let filtered = patientsData
+        
+        // Filter by gender
+        if (genderFilter.value) {
+          filtered = filtered.filter(p => p.spol === genderFilter.value)
+        }
+        
+        // Filter by age range
+        if (ageFrom.value || ageTo.value) {
+          filtered = filtered.filter(p => {
+            const age = calculateAge(p.datumRodenja)
+            const from = ageFrom.value ? parseInt(ageFrom.value) : 0
+            const to = ageTo.value ? parseInt(ageTo.value) : 150
+            return age >= from && age <= to
+          })
+        }
+        
+        // Enhanced text search that includes first name
+        if (searchTerm.value.trim() && patientsData.length > 0) {
+          const searchLower = searchTerm.value.toLowerCase()
+          filtered = filtered.filter(p => {
+            const fullName = `${p.ime} ${p.prezime}`.toLowerCase()
+            const oib = p.oib || ''
+            return fullName.includes(searchLower) || 
+                   oib.includes(searchLower) ||
+                   p.ime.toLowerCase().includes(searchLower) ||
+                   p.prezime.toLowerCase().includes(searchLower)
+          })
+        }
+        
+        patientsStore.setPatients(filtered)
       } catch (error) {
         console.error('Error searching patients:', error)
       } finally {
@@ -184,17 +254,29 @@ export default {
       }
     }
 
+    const clearFilters = () => {
+      searchTerm.value = ''
+      genderFilter.value = ''
+      ageFrom.value = ''
+      ageTo.value = ''
+      loadPatients()
+    }
+
     return {
       showAddForm,
       editingPatient,
       searchTerm,
+      genderFilter,
+      ageFrom,
+      ageTo,
       patientForm,
       patients,
       loading,
       savePatient,
       editPatient,
       cancelForm,
-      searchPatients
+      searchPatients,
+      clearFilters
     }
   }
 }
@@ -213,15 +295,42 @@ export default {
 }
 
 .search-section {
+  background-color: #f8f9fa;
+  padding: 20px;
+  border-radius: 8px;
   margin-bottom: 20px;
 }
 
-.search-input {
-  width: 100%;
-  max-width: 400px;
-  padding: 10px;
+.search-filters {
+  display: grid;
+  grid-template-columns: 2fr 1fr 120px 120px auto;
+  gap: 15px;
+  align-items: center;
+}
+
+.filter-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.search-input,
+.filter-select,
+.age-input {
+  padding: 8px;
   border: 1px solid #ddd;
   border-radius: 4px;
+  font-size: 14px;
+}
+
+.age-input {
+  width: 100px;
+}
+
+@media (max-width: 768px) {
+  .search-filters {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
 }
 
 .form-section {
