@@ -2,6 +2,8 @@ import { patientService } from './patientService'
 import { prescriptionService } from './prescriptionService'
 import { examinationService } from './examinationService'
 import { medicalHistoryService } from './medicalHistoryService'
+import { doctorService } from './doctorService'
+import apiClient from './api'
 
 export const exportService = {
   // CSV helper functions
@@ -46,19 +48,22 @@ export const exportService = {
   // Export functions for different entities
   async exportPatients() {
     try {
-      const patients = await patientService.getAllPatients()
-      const headers = [
-        { key: 'id', label: 'ID' },
-        { key: 'ime', label: 'Ime' },
-        { key: 'prezime', label: 'Prezime' },
-        { key: 'oib', label: 'OIB' },
-        { key: 'datumRodjenja', label: 'Datum rođenja' },
-        { key: 'spol', label: 'Spol' }
-      ]
+      // Use backend CSV export endpoint
+      const response = await apiClient.get('/Pacijenti/export/csv', {
+        responseType: 'blob'
+      })
       
-      const csvContent = this.arrayToCSV(patients, headers)
-      const filename = `pacijenti_${new Date().toISOString().split('T')[0]}.csv`
-      this.downloadCSV(csvContent, filename)
+      // Create download link for the CSV file
+      const blob = new Blob([response.data], { type: 'application/vnd.ms-excel' })
+      const link = document.createElement('a')
+      const url = URL.createObjectURL(blob)
+      link.setAttribute('href', url)
+      link.setAttribute('download', `pacijenti_${new Date().toISOString().split('T')[0]}.csv`)
+      link.style.visibility = 'hidden'
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      
       return true
     } catch (error) {
       console.error('Greška pri exportu pacijenata:', error)
@@ -75,7 +80,7 @@ export const exportService = {
 
       // Create a map for patient lookup
       const patientMap = new Map()
-      patients.forEach(p => patientMap.set(p.id, `${p.ime} ${p.prezime}`))
+      patients.forEach(p => patientMap.set(p.pacijentId, `${p.ime} ${p.prezime}`))
 
       // Flatten prescriptions with their items
       const flatData = []
@@ -124,12 +129,12 @@ export const exportService = {
       const [examinations, patients, doctors] = await Promise.all([
         examinationService.getAllExaminations(),
         patientService.getAllPatients(),
-        examinationService.getAllDoctors()
+        doctorService.getAllDoctors()
       ])
 
       // Create maps for lookups
       const patientMap = new Map()
-      patients.forEach(p => patientMap.set(p.id, `${p.ime} ${p.prezime}`))
+      patients.forEach(p => patientMap.set(p.pacijentId, `${p.ime} ${p.prezime}`))
       
       const doctorMap = new Map()
       doctors.forEach(d => doctorMap.set(d.doktorId, `${d.ime} ${d.prezime}`))
@@ -137,10 +142,9 @@ export const exportService = {
       const exportData = examinations.map(exam => ({
         pregledId: exam.pregledId,
         pacijent: patientMap.get(exam.pacijentId) || 'Nepoznat',
-        doktor: doctorMap.get(exam.doktorId) || 'Nepoznat',
+        doktor: exam.doktor || 'Nepoznat', // Backend already provides formatted doctor name
         vrstaPregleda: exam.vrstaPregleda || '',
-        datumVrijeme: exam.datumVrijeme,
-        datoteka: exam.datoteka || ''
+        datumPregleda: exam.datumPregleda
       }))
 
       const headers = [
@@ -148,8 +152,7 @@ export const exportService = {
         { key: 'pacijent', label: 'Pacijent' },
         { key: 'doktor', label: 'Doktor' },
         { key: 'vrstaPregleda', label: 'Vrsta pregleda' },
-        { key: 'datumVrijeme', label: 'Datum i vrijeme' },
-        { key: 'datoteka', label: 'Datoteka' }
+        { key: 'datumPregleda', label: 'Datum pregleda' }
       ]
       
       const csvContent = this.arrayToCSV(exportData, headers)
@@ -171,27 +174,27 @@ export const exportService = {
         // Export for specific patient
         historyData = await medicalHistoryService.getHistoryByPatient(pacijentId)
         const patient = await patientService.getPatientById(pacijentId)
-        patients = [patient]
+        patients = [patient.data]
       } else {
         // Export all medical history would require getting all patients first
         patients = await patientService.getAllPatients()
         for (const patient of patients) {
           try {
-            const history = await medicalHistoryService.getHistoryByPatient(patient.id)
-            historyData.push(...history.map(h => ({ ...h, pacijentId: patient.id })))
+            const history = await medicalHistoryService.getHistoryByPatient(patient.pacijentId)
+            historyData.push(...history.map(h => ({ ...h, pacijentId: patient.pacijentId })))
           } catch (error) {
             // Skip patients without history
-            console.warn(`No history for patient ${patient.id}`)
+            console.warn(`No history for patient ${patient.pacijentId}`)
           }
         }
       }
 
       // Create patient map
       const patientMap = new Map()
-      patients.forEach(p => patientMap.set(p.id, `${p.ime} ${p.prezime}`))
+      patients.forEach(p => patientMap.set(p.pacijentId, `${p.ime} ${p.prezime}`))
 
       const exportData = historyData.map(history => ({
-        povijestBolestiId: history.povijestBolestiId || history.id,
+        povijestId: history.povijestId,
         pacijent: patientMap.get(history.pacijentId) || 'Nepoznat',
         nazivBolesti: history.nazivBolesti,
         datumPocetka: history.datumPocetka,
@@ -200,7 +203,7 @@ export const exportService = {
       }))
 
       const headers = [
-        { key: 'povijestBolestiId', label: 'ID' },
+        { key: 'povijestId', label: 'ID' },
         { key: 'pacijent', label: 'Pacijent' },
         { key: 'nazivBolesti', label: 'Naziv bolesti' },
         { key: 'datumPocetka', label: 'Datum početka' },

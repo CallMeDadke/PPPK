@@ -26,8 +26,12 @@ export const patientService = {
     return response.data
   },
 
-  async searchPatients(searchTerm) {
-    const response = await apiClient.get(`/Pacijenti/search?term=${encodeURIComponent(searchTerm)}`)
-    return response.data
+  async searchPatients(oib = null, prezime = null) {
+    let params = new URLSearchParams()
+    if (oib) params.append('oib', oib)
+    if (prezime) params.append('prezime', prezime)
+    
+    const response = await apiClient.get(`/Pacijenti/search?${params.toString()}`)
+    return response.data.data
   }
 }

@@ -51,24 +51,18 @@ export const examinationService = {
     const response = await apiClient.get('/VrstePregleda')
     const types = response.data.data || response.data // Handle ApiResponse wrapper
     
-    // Transform to match frontend expectations
-    return types.map(type => ({
-      id: type.sifra, // Use code as ID
+    // Transform to match frontend expectations - backend only returns static codes
+    return types.map((type, index) => ({
+      id: index + 1, // Generate sequential IDs (1-13)
       kod: type.sifra,
       sifra: type.sifra,
       naziv: type.naziv
     }))
   },
 
-  // Helper method to get examination type ID from code
+  // Helper method to get examination type ID from code  
   async getExaminationTypeId(code) {
-    const types = await this.getExaminationTypes()
-    const type = types.find(t => t.kod === code)
-    if (!type) {
-      throw new Error(`Unknown examination type: ${code}`)
-    }
-    // For this API, we need to find the actual ID from the VrstePregleda table
-    // Since the backend expects VrstaPregledaId (integer), we need to map codes to IDs
+    // Since backend uses hardcoded types, map codes to sequential IDs (1-13)
     const typeMapping = {
       'GP': 1, 'KRV': 2, 'X-RAY': 3, 'CT': 4, 'MR': 5, 'ULTRA': 6, 
       'EKG': 7, 'ECHO': 8, 'EYE': 9, 'DERM': 10, 'DENTA': 11, 'MAMMO': 12, 'NEURO': 13

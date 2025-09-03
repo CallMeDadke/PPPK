@@ -16,7 +16,7 @@
             type="text" 
             placeholder="Pretraži po imenu, prezimenu ili OIB-u"
             class="search-input"
-            @input="searchPatients"
+            @input="debouncedSearch"
           >
         </div>
         
@@ -177,7 +177,13 @@ export default {
         // Start with all patients if no text search
         let patientsData = []
         if (searchTerm.value.trim()) {
-          patientsData = await patientService.searchPatients(searchTerm.value)
+          // Determine if search term is OIB (11 digits) or name
+          const isOIB = /^\d{11}$/.test(searchTerm.value.trim())
+          if (isOIB) {
+            patientsData = await patientService.searchPatients(searchTerm.value.trim(), null)
+          } else {
+            patientsData = await patientService.searchPatients(null, searchTerm.value.trim())
+          }
         } else {
           patientsData = await patientService.getAllPatients()
         }
