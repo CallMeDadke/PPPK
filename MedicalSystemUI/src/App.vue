@@ -9,10 +9,9 @@
         <router-link to="/patients" class="nav-link">Pacijenti</router-link>
         <router-link to="/examinations" class="nav-link">Pregledi</router-link>
         <router-link to="/prescriptions" class="nav-link">Recepti</router-link>
-        <router-link to="/reports" class="nav-link">Izvještaji</router-link>
       </div>
     </nav>
-    
+
     <main class="main-content">
       <router-view />
     </main>
@@ -21,8 +20,8 @@
 
 <script>
 export default {
-  name: 'App'
-}
+  name: "App",
+};
 </script>
 
 <style>
@@ -46,7 +45,7 @@ export default {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .nav-brand h2 {

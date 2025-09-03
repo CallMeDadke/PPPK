@@ -18,26 +18,6 @@
             class="search-input"
           >
         </div>
-        
-        <div class="filter-group">
-          <label>Filtriraj po pacijentu:</label>
-          <select v-model="selectedPatient" @change="filterPrescriptions" class="filter-select">
-            <option value="">Svi pacijenti</option>
-            <option v-for="patient in patients" :key="patient.id" :value="patient.id">
-              {{ patient.ime }} {{ patient.prezime }}
-            </option>
-          </select>
-        </div>
-
-        <div class="filter-group">
-          <label>Datum od:</label>
-          <input type="date" v-model="dateFrom" @change="filterPrescriptions" class="date-input">
-        </div>
-
-        <div class="filter-group">
-          <label>Datum do:</label>
-          <input type="date" v-model="dateTo" @change="filterPrescriptions" class="date-input">
-        </div>
 
         <button @click="clearFilters" class="btn btn-small">Očisti filtere</button>
       </div>
@@ -52,17 +32,17 @@
       <table v-else class="data-table">
         <thead>
           <tr>
-            <th>ID</th>
             <th>Pacijent</th>
+            <th>OIB</th>
             <th>Datum izdavanja</th>
             <th>Broj lijekova</th>
             <th>Akcije</th>
           </tr>
-        </thead>
+        </thead>	
         <tbody>
           <tr v-for="prescription in filteredPrescriptions" :key="prescription.receptId">
-            <td>{{ prescription.receptId }}</td>
             <td>{{ getPatientName(prescription.pacijentId) }}</td>
+            <td>{{ getPatientOIB(prescription.pacijentId) }}</td>
             <td>{{ prescription.datumIzdavanja }}</td>
             <td>{{ prescription.stavke ? prescription.stavke.length : 0 }}</td>
             <td>
@@ -88,7 +68,7 @@
               <label>Pacijent:</label>
               <select v-model="currentPrescription.pacijentId" required>
                 <option value="">Odaberite pacijenta</option>
-                <option v-for="patient in patients" :key="patient.id" :value="patient.id">
+                <option v-for="patient in patients" :key="patient.pacijentId" :value="patient.pacijentId">
                   {{ patient.ime }} {{ patient.prezime }} ({{ patient.oib }})
                 </option>
               </select>
@@ -156,199 +136,177 @@
   </div>
 </template>
 
-<script>
+<script setup>
+import { ref, onMounted } from 'vue'
 import { prescriptionService } from '../services/prescriptionService'
 import { medicineService } from '../services/medicineService'
 import { patientService } from '../services/patientService'
 
-export default {
-  name: 'PrescriptionsView',
-  data() {
-    return {
-      prescriptions: [],
-      filteredPrescriptions: [],
-      patients: [],
-      medicines: [],
-      loading: false,
-      showModal: false,
-      showViewModal: false,
-      isEditing: false,
-      currentPrescription: {
-        receptId: null,
-        pacijentId: '',
-        datumIzdavanja: new Date().toISOString().split('T')[0],
-        stavke: [{ lijekId: '', doziranje: '' }]
-      },
-      viewingPrescription: {},
-      // Filter properties
-      searchTerm: '',
-      selectedPatient: '',
-      dateFrom: '',
-      dateTo: ''
+const prescriptions = ref([])
+const filteredPrescriptions = ref([])
+const patients = ref([])
+const medicines = ref([])
+const loading = ref(false)
+const showModal = ref(false)
+const showViewModal = ref(false)
+const isEditing = ref(false)
+const currentPrescription = ref({
+  receptId: null,
+  pacijentId: '',
+  datumIzdavanja: new Date().toISOString().split('T')[0],
+  stavke: [{ lijekId: '', doziranje: '' }]
+})
+const viewingPrescription = ref({})
+
+// Filter properties
+const searchTerm = ref('')
+
+const loadData = async () => {
+  loading.value = true
+  try {
+    const [prescriptionsData, patientsData, medicinesData] = await Promise.all([
+      prescriptionService.getAllPrescriptions(),
+      patientService.getAllPatients(),
+      medicineService.getAllMedicines()
+    ])
+    prescriptions.value = prescriptionsData || []
+    filteredPrescriptions.value = prescriptions.value
+    patients.value = patientsData || []
+    medicines.value = medicinesData || []
+  } catch (error) {
+    console.error('Greška pri učitavanju podataka:', error)
+    alert('Greška pri učitavanju podataka')
+  } finally {
+    loading.value = false
+  }
+}
+
+const getPatientName = (pacijentId) => {
+  const patient = patients.value.find(p => p.pacijentId === pacijentId)
+  return patient ? `${patient.ime} ${patient.prezime}` : 'Nepoznat pacijent'
+}
+
+const getPatientOIB = (pacijentId) => {
+  const patient = patients.value.find(p => p.pacijentId === pacijentId)
+  return patient ? patient.oib : '-'
+}
+
+const editPrescription = (prescription) => {
+  isEditing.value = true
+  currentPrescription.value = {
+    receptId: prescription.receptId,
+    pacijentId: prescription.pacijentId,
+    datumIzdavanja: prescription.datumIzdavanja,
+    stavke: prescription.stavke && prescription.stavke.length > 0 
+      ? prescription.stavke.map(s => ({ lijekId: s.lijekId, doziranje: s.doziranje }))
+      : [{ lijekId: '', doziranje: '' }]
+  }
+  showModal.value = true
+}
+
+const viewPrescription = (prescription) => {
+  viewingPrescription.value = prescription
+  showViewModal.value = true
+}
+
+const addStavka = () => {
+  currentPrescription.value.stavke.push({ lijekId: '', doziranje: '' })
+}
+
+const removeStavka = (index) => {
+  if (currentPrescription.value.stavke.length > 1) {
+    currentPrescription.value.stavke.splice(index, 1)
+  }
+}
+
+const closeModal = () => {
+  showModal.value = false
+  isEditing.value = false
+  currentPrescription.value = {
+    receptId: null,
+    pacijentId: '',
+    datumIzdavanja: new Date().toISOString().split('T')[0],
+    stavke: [{ lijekId: '', doziranje: '' }]
+  }
+}
+
+const savePrescription = async () => {
+  try {
+    const prescriptionData = {
+      pacijentId: parseInt(currentPrescription.value.pacijentId),
+      datumIzdavanja: currentPrescription.value.datumIzdavanja,
+      stavke: currentPrescription.value.stavke
+        .filter(s => s.lijekId && s.doziranje.trim())
+        .map(s => ({
+          lijekId: parseInt(s.lijekId),
+          doziranje: s.doziranje.trim()
+        }))
     }
-  },
-  async created() {
-    await this.loadData()
-  },
-  methods: {
-    async loadData() {
-      this.loading = true
-      try {
-        const [prescriptionsData, patientsData, medicinesData] = await Promise.all([
-          prescriptionService.getAllPrescriptions(),
-          patientService.getAllPatients(),
-          medicineService.getAllMedicines()
-        ])
-        this.prescriptions = prescriptionsData || []
-        this.filteredPrescriptions = this.prescriptions
-        this.patients = patientsData || []
-        this.medicines = medicinesData || []
-      } catch (error) {
-        console.error('Greška pri učitavanju podataka:', error)
-        alert('Greška pri učitavanju podataka')
-      } finally {
-        this.loading = false
-      }
-    },
 
-    getPatientName(pacijentId) {
-      const patient = this.patients.find(p => p.id === pacijentId)
-      return patient ? `${patient.ime} ${patient.prezime}` : 'Nepoznat pacijent'
-    },
+    if (prescriptionData.stavke.length === 0) {
+      alert('Dodajte barem jedan lijek na recept')
+      return
+    }
 
-    editPrescription(prescription) {
-      this.isEditing = true
-      this.currentPrescription = {
-        receptId: prescription.receptId,
-        pacijentId: prescription.pacijentId,
-        datumIzdavanja: prescription.datumIzdavanja,
-        stavke: prescription.stavke && prescription.stavke.length > 0 
-          ? prescription.stavke.map(s => ({ lijekId: s.lijekId, doziranje: s.doziranje }))
-          : [{ lijekId: '', doziranje: '' }]
-      }
-      this.showModal = true
-    },
+    if (isEditing.value) {
+      await prescriptionService.updatePrescription(currentPrescription.value.receptId, prescriptionData)
+    } else {
+      await prescriptionService.createPrescription(prescriptionData)
+    }
 
-    viewPrescription(prescription) {
-      this.viewingPrescription = prescription
-      this.showViewModal = true
-    },
+    await loadData()
+    closeModal()
+  } catch (error) {
+    console.error('Greška pri spremanju recepta:', error)
+    alert('Greška pri spremanju recepta')
+  }
+}
 
-    addStavka() {
-      this.currentPrescription.stavke.push({ lijekId: '', doziranje: '' })
-    },
-
-    removeStavka(index) {
-      if (this.currentPrescription.stavke.length > 1) {
-        this.currentPrescription.stavke.splice(index, 1)
-      }
-    },
-
-    closeModal() {
-      this.showModal = false
-      this.isEditing = false
-      this.currentPrescription = {
-        receptId: null,
-        pacijentId: '',
-        datumIzdavanja: new Date().toISOString().split('T')[0],
-        stavke: [{ lijekId: '', doziranje: '' }]
-      }
-    },
-
-    async savePrescription() {
-      try {
-        const prescriptionData = {
-          pacijentId: parseInt(this.currentPrescription.pacijentId),
-          datumIzdavanja: this.currentPrescription.datumIzdavanja,
-          stavke: this.currentPrescription.stavke
-            .filter(s => s.lijekId && s.doziranje.trim())
-            .map(s => ({
-              lijekId: parseInt(s.lijekId),
-              doziranje: s.doziranje.trim()
-            }))
-        }
-
-        if (prescriptionData.stavke.length === 0) {
-          alert('Dodajte barem jedan lijek na recept')
-          return
-        }
-
-        if (this.isEditing) {
-          await prescriptionService.updatePrescription(this.currentPrescription.receptId, prescriptionData)
-        } else {
-          await prescriptionService.createPrescription(prescriptionData)
-        }
-
-        await this.loadData()
-        this.closeModal()
-      } catch (error) {
-        console.error('Greška pri spremanju recepta:', error)
-        alert('Greška pri spremanju recepta')
-      }
-    },
-
-    async deletePrescription(id) {
-      if (confirm('Jeste li sigurni da želite obrisati ovaj recept?')) {
-        try {
-          await prescriptionService.deletePrescription(id)
-          await this.loadData()
-        } catch (error) {
-          console.error('Greška pri brisanju recepta:', error)
-          alert('Greška pri brisanju recepta')
-        }
-      }
-    },
-
-    // Filtering methods
-    filterPrescriptions() {
-      let filtered = [...this.prescriptions]
-
-      // Filter by search term (patient name or OIB)
-      if (this.searchTerm.trim()) {
-        const searchLower = this.searchTerm.toLowerCase()
-        filtered = filtered.filter(prescription => {
-          const patient = this.patients.find(p => p.id === prescription.pacijentId)
-          if (patient) {
-            const patientName = `${patient.ime} ${patient.prezime}`.toLowerCase()
-            const oib = patient.oib || ''
-            return patientName.includes(searchLower) || oib.includes(searchLower)
-          }
-          return false
-        })
-      }
-
-      // Filter by selected patient
-      if (this.selectedPatient) {
-        filtered = filtered.filter(prescription => 
-          prescription.pacijentId === parseInt(this.selectedPatient)
-        )
-      }
-
-      // Filter by date range
-      if (this.dateFrom) {
-        filtered = filtered.filter(prescription => 
-          prescription.datumIzdavanja >= this.dateFrom
-        )
-      }
-
-      if (this.dateTo) {
-        filtered = filtered.filter(prescription => 
-          prescription.datumIzdavanja <= this.dateTo
-        )
-      }
-
-      this.filteredPrescriptions = filtered
-    },
-
-    clearFilters() {
-      this.searchTerm = ''
-      this.selectedPatient = ''
-      this.dateFrom = ''
-      this.dateTo = ''
-      this.filteredPrescriptions = [...this.prescriptions]
+const deletePrescription = async (id) => {
+  if (confirm('Jeste li sigurni da želite obrisati ovaj recept?')) {
+    try {
+      await prescriptionService.deletePrescription(id)
+      await loadData()
+    } catch (error) {
+      console.error('Greška pri brisanju recepta:', error)
+      alert('Greška pri brisanju recepta')
     }
   }
 }
+
+// Filtering methods
+const filterPrescriptions = () => {
+  let filtered = [...prescriptions.value]
+
+  // Filter by search term (patient name or OIB)
+  if (searchTerm.value.trim()) {
+    const searchLower = searchTerm.value.toLowerCase()
+    filtered = filtered.filter(prescription => {
+      const patient = patients.value.find(p => p.pacijentId === prescription.pacijentId)
+      if (patient) {
+        const fullName = `${patient.ime} ${patient.prezime}`.toLowerCase()
+        const oib = patient.oib || ''
+        return fullName.includes(searchLower) || 
+               oib.includes(searchLower) ||
+               patient.ime.toLowerCase().includes(searchLower) ||
+               patient.prezime.toLowerCase().includes(searchLower)
+      }
+      return false
+    })
+  }
+
+
+  filteredPrescriptions.value = filtered
+}
+
+const clearFilters = () => {
+  searchTerm.value = ''
+  filteredPrescriptions.value = [...prescriptions.value]
+}
+
+onMounted(async () => {
+  await loadData()
+})
 </script>
 
 <style scoped>
@@ -372,7 +330,7 @@ export default {
 
 .search-filters {
   display: grid;
-  grid-template-columns: 1fr 1fr 150px 150px auto;
+  grid-template-columns: 1fr auto;
   gap: 15px;
   align-items: end;
 }

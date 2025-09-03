@@ -148,167 +148,163 @@
   </div>
 </template>
 
-<script>
+<script setup>
+import { ref, computed, onMounted } from "vue";
 import { examinationService } from "../services/examinationService";
 import { patientService } from "../services/patientService";
 import { doctorService } from "../services/doctorService";
 
-export default {
-  name: "ExaminationsView",
-  data() {
-    return {
-      examinations: [],
-      patients: [],
-      doctors: [],
-      examinationTypes: [],
-      loading: false,
-      showAddForm: false,
-      editingExamination: null,
-      uploadedFiles: [],
-      form: {
-        pacijentId: "",
-        doktorId: "",
-        vrstaPregleda: "",
-        datumPregleda: "",
-      },
-    };
-  },
-  computed: {
-    isImagingExamination() {
-      const imagingTypes = ["X-RAY", "CT", "MR", "ULTRA", "MAMMO"];
-      return imagingTypes.includes(this.form.vrstaPregleda);
-    },
-  },
-  async mounted() {
-    await this.loadData();
-  },
-  methods: {
-    async loadData() {
-      this.loading = true;
-      try {
-        const [examinations, patients, types, doctors] = await Promise.all([
-          examinationService.getAllExaminations(),
-          patientService.getAllPatients(),
-          examinationService.getExaminationTypes(),
-          doctorService.getAllDoctors(),
-        ]);
+const examinations = ref([]);
+const patients = ref([]);
+const doctors = ref([]);
+const examinationTypes = ref([]);
+const loading = ref(false);
+const showAddForm = ref(false);
+const editingExamination = ref(null);
+const uploadedFiles = ref([]);
+const form = ref({
+  pacijentId: "",
+  doktorId: "",
+  vrstaPregleda: "",
+  datumPregleda: "",
+});
 
-        this.examinations = examinations ?? [];
-        this.patients = patients ?? [];
-        this.examinationTypes = types ?? [];
-        this.doctors = doctors ?? [];
-        console.log(this.examinations, this.patients, this.types, this.doctors);
-      } catch (error) {
-        console.error("Greška pri učitavanju podataka:", error);
-        alert("Greška pri učitavanju podataka");
-      } finally {
-        this.loading = false;
-      }
-    },
+const isImagingExamination = computed(() => {
+  const imagingTypes = ["X-RAY", "CT", "MR", "ULTRA", "MAMMO"];
+  return imagingTypes.includes(form.value.vrstaPregleda);
+});
 
-    closeAddForm() {
-      this.showAddForm = false;
-      this.editingExamination = null;
-      this.resetForm();
-    },
+const loadData = async () => {
+  loading.value = true;
+  try {
+    const [examinationsData, patientsData, typesData, doctorsData] =
+      await Promise.all([
+        examinationService.getAllExaminations(),
+        patientService.getAllPatients(),
+        examinationService.getExaminationTypes(),
+        doctorService.getAllDoctors(),
+      ]);
 
-    resetForm() {
-      this.form = {
-        pacijentId: "",
-        doktorId: "",
-        vrstaPregleda: "",
-        datumPregleda: "",
-      };
-      this.uploadedFiles = [];
-    },
-
-    handleFileUpload(event) {
-      const files = Array.from(event.target.files);
-      this.uploadedFiles.push(...files);
-    },
-
-    removeFile(index) {
-      this.uploadedFiles.splice(index, 1);
-    },
-
-    async saveExamination() {
-      try {
-        // const examinationData = {
-        //   ...this.form,
-        //   datumPregleda: new Date(this.form.datumPregleda).toISOString(),
-        // };
-
-        // let savedExamination;
-        if (this.editingExamination) {
-          //   savedExamination = await examinationService.updateExamination(
-          //     this.editingExamination.pregledId,
-          //     examinationData
-          //   );
-        } else {
-          //   savedExamination = await examinationService.createExamination(
-          //     examinationData
-          //   );
-        }
-
-        // File upload placeholder - in real implementation, files would be uploaded to the server
-        if (this.uploadedFiles.length > 0) {
-          console.log(
-            "Datoteke za učitavanje:",
-            this.uploadedFiles.map((f) => f.name)
-          );
-          // Here you would normally upload files to the server
-          // const formData = new FormData()
-          // this.uploadedFiles.forEach(file => formData.append('files', file))
-          // await documentService.uploadFiles(savedExamination.id, formData)
-        }
-
-        await this.loadData();
-        this.closeAddForm();
-      } catch (error) {
-        console.error("Greška pri spremanju:", error);
-        alert("Greška pri spremanju pregleda");
-      }
-    },
-
-    editExamination(examination) {
-      this.editingExamination = examination;
-      this.form = {
-        pacijentId: examination.pacijentId,
-        doktorId: examination.doktorId,
-        vrstaPregleda: examination.vrstaPregleda,
-        datumPregleda: new Date(examination.datumPregleda)
-          .toISOString()
-          .slice(0, 16),
-      };
-      this.showAddForm = true;
-    },
-
-    async deleteExamination(id) {
-      if (confirm("Jeste li sigurni da želite obrisati ovaj pregled?")) {
-        try {
-          await examinationService.deleteExamination(id);
-          await this.loadData();
-        } catch (error) {
-          console.error("Greška pri brisanju:", error);
-          alert("Greška pri brisanju pregleda");
-        }
-      }
-    },
-
-    getPatientName(patientId) {
-      if (this.patients.length === 0) {
-        return "Loading...";
-      }
-      const patient = this.patients.find((p) => p.pacijentId === patientId);
-      return patient ? `${patient.ime} ${patient.prezime}` : "N/A";
-    },
-
-    getExaminationType(typeCode) {
-      const type = this.examinationTypes.find((t) => t.kod === typeCode);
-      return type ? type.naziv : typeCode;
-    },
-  },
+    examinations.value = examinationsData ?? [];
+    patients.value = patientsData ?? [];
+    examinationTypes.value = typesData ?? [];
+    doctors.value = doctorsData ?? [];
+    console.log(
+      examinations.value,
+      patients.value,
+      examinationTypes.value,
+      doctors.value
+    );
+  } catch (error) {
+    console.error("Greška pri učitavanju podataka:", error);
+    alert("Greška pri učitavanju podataka");
+  } finally {
+    loading.value = false;
+  }
 };
+
+const closeAddForm = () => {
+  showAddForm.value = false;
+  editingExamination.value = null;
+  resetForm();
+};
+
+const resetForm = () => {
+  form.value = {
+    pacijentId: "",
+    doktorId: "",
+    vrstaPregleda: "",
+    datumPregleda: "",
+  };
+  uploadedFiles.value = [];
+};
+
+const handleFileUpload = (event) => {
+  const files = Array.from(event.target.files);
+  uploadedFiles.value.push(...files);
+};
+
+const removeFile = (index) => {
+  uploadedFiles.value.splice(index, 1);
+};
+
+const saveExamination = async () => {
+  try {
+    const examinationData = {
+      ...form.value,
+      datumPregleda: new Date(form.value.datumPregleda).toISOString(),
+    };
+
+    if (editingExamination.value) {
+      await examinationService.updateExamination(
+        editingExamination.value.pregledId,
+        examinationData
+      );
+    } else {
+      await examinationService.createExamination(examinationData);
+    }
+
+    // File upload placeholder - in real implementation, files would be uploaded to the server
+    if (uploadedFiles.value.length > 0) {
+      console.log(
+        "Datoteke za učitavanje:",
+        uploadedFiles.value.map((f) => f.name)
+      );
+      // Here you would normally upload files to the server
+      // const formData = new FormData()
+      // uploadedFiles.value.forEach(file => formData.append('files', file))
+      // await documentService.uploadFiles(examination.id, formData)
+    }
+
+    await loadData();
+    closeAddForm();
+  } catch (error) {
+    console.error("Greška pri spremanju:", error);
+    alert("Greška pri spremanju pregleda");
+  }
+};
+
+const editExamination = (examination) => {
+  editingExamination.value = examination;
+  form.value = {
+    pacijentId: examination.pacijentId,
+    doktorId: examination.doktorId,
+    vrstaPregleda: examination.vrstaPregleda,
+    datumPregleda: new Date(examination.datumPregleda)
+      .toISOString()
+      .slice(0, 16),
+  };
+  showAddForm.value = true;
+};
+
+const deleteExamination = async (id) => {
+  if (confirm("Jeste li sigurni da želite obrisati ovaj pregled?")) {
+    try {
+      await examinationService.deleteExamination(id);
+      await loadData();
+    } catch (error) {
+      console.error("Greška pri brisanju:", error);
+      alert("Greška pri brisanju pregleda");
+    }
+  }
+};
+
+const getPatientName = (patientId) => {
+  if (patients.value.length === 0) {
+    return "Loading...";
+  }
+  const patient = patients.value.find((p) => p.pacijentId === patientId);
+  return patient ? `${patient.ime} ${patient.prezime}` : "N/A";
+};
+
+const getExaminationType = (typeCode) => {
+  const type = examinationTypes.value.find((t) => t.kod === typeCode);
+  return type ? type.naziv : typeCode;
+};
+
+onMounted(async () => {
+  await loadData();
+});
 </script>
 
 <style scoped>

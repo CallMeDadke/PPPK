@@ -28,13 +28,6 @@
           </select>
         </div>
 
-        <div class="filter-group">
-          <input type="number" v-model="ageFrom" placeholder="Godine od" @input="searchPatients" class="age-input">
-        </div>
-
-        <div class="filter-group">
-          <input type="number" v-model="ageTo" placeholder="Godine do" @input="searchPatients" class="age-input">
-        </div>
 
         <button @click="clearFilters" class="btn btn-small">Očisti filtere</button>
       </div>
@@ -115,177 +108,132 @@
   </div>
 </template>
 
-<script>
+<script setup>
 import { ref, onMounted, computed } from 'vue'
 import { usePatientsStore } from '@/stores/patients'
 import { patientService } from '@/services/patientService'
 
-export default {
-  name: 'PatientsView',
-  setup() {
-    const patientsStore = usePatientsStore()
-    const showAddForm = ref(false)
-    const editingPatient = ref(null)
-    const searchTerm = ref('')
-    const genderFilter = ref('')
-    const ageFrom = ref('')
-    const ageTo = ref('')
-    
-    const patientForm = ref({
-      ime: '',
-      prezime: '',
-      oib: '',
-      datumRodenja: '',
-      spol: ''
-    })
+const patientsStore = usePatientsStore()
+const showAddForm = ref(false)
+const editingPatient = ref(null)
+const searchTerm = ref('')
+const genderFilter = ref('')
 
-    const patients = computed(() => patientsStore.patients)
-    const loading = computed(() => patientsStore.loading)
+const patientForm = ref({
+  ime: '',
+  prezime: '',
+  oib: '',
+  datumRodenja: '',
+  spol: ''
+})
 
-    onMounted(async () => {
-      await loadPatients()
-    })
+const patients = computed(() => patientsStore.patients)
+const loading = computed(() => patientsStore.loading)
 
-    const loadPatients = async () => {
-      try {
-        patientsStore.setLoading(true)
-        const data = await patientService.getAllPatients()
-        console.log('Loaded patients:', data);
-        patientsStore.setPatients(data)
-      } catch (error) {
-        console.error('Error loading patients:', error)
-      } finally {
-        patientsStore.setLoading(false)
-      }
-    }
-
-    const calculateAge = (birthDate) => {
-      const today = new Date()
-      const birth = new Date(birthDate)
-      let age = today.getFullYear() - birth.getFullYear()
-      const monthDiff = today.getMonth() - birth.getMonth()
-      if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
-        age--
-      }
-      return age
-    }
-
-    const searchPatients = async () => {
-      try {
-        patientsStore.setLoading(true)
-        
-        // Start with all patients if no text search
-        let patientsData = []
-        if (searchTerm.value.trim()) {
-          // Determine if search term is OIB (11 digits) or name
-          const isOIB = /^\d{11}$/.test(searchTerm.value.trim())
-          if (isOIB) {
-            patientsData = await patientService.searchPatients(searchTerm.value.trim(), null)
-          } else {
-            patientsData = await patientService.searchPatients(null, searchTerm.value.trim())
-          }
-        } else {
-          patientsData = await patientService.getAllPatients()
-        }
-        
-        // Apply additional filters on the frontend
-        let filtered = patientsData
-        
-        // Filter by gender
-        if (genderFilter.value) {
-          filtered = filtered.filter(p => p.spol === genderFilter.value)
-        }
-        
-        // Filter by age range
-        if (ageFrom.value || ageTo.value) {
-          filtered = filtered.filter(p => {
-            const age = calculateAge(p.datumRodenja)
-            const from = ageFrom.value ? parseInt(ageFrom.value) : 0
-            const to = ageTo.value ? parseInt(ageTo.value) : 150
-            return age >= from && age <= to
-          })
-        }
-        
-        // Enhanced text search that includes first name
-        if (searchTerm.value.trim() && patientsData.length > 0) {
-          const searchLower = searchTerm.value.toLowerCase()
-          filtered = filtered.filter(p => {
-            const fullName = `${p.ime} ${p.prezime}`.toLowerCase()
-            const oib = p.oib || ''
-            return fullName.includes(searchLower) || 
-                   oib.includes(searchLower) ||
-                   p.ime.toLowerCase().includes(searchLower) ||
-                   p.prezime.toLowerCase().includes(searchLower)
-          })
-        }
-        
-        patientsStore.setPatients(filtered)
-      } catch (error) {
-        console.error('Error searching patients:', error)
-      } finally {
-        patientsStore.setLoading(false)
-      }
-    }
-
-    const savePatient = async () => {
-      try {
-        if (editingPatient.value) {
-          const updated = await patientService.updatePatient(editingPatient.value.pacijentId, patientForm.value)
-          patientsStore.updatePatient(updated)
-        } else {
-          const newPatient = await patientService.createPatient(patientForm.value)
-          patientsStore.addPatient(newPatient)
-        }
-        cancelForm()
-      } catch (error) {
-        console.error('Error saving patient:', error)
-      }
-    }
-
-    const editPatient = (patient) => {
-      editingPatient.value = patient
-      patientForm.value = { ...patient }
-      showAddForm.value = false
-    }
-
-    const cancelForm = () => {
-      showAddForm.value = false
-      editingPatient.value = null
-      patientForm.value = {
-        ime: '',
-        prezime: '',
-        oib: '',
-        datumRodenja: '',
-        spol: ''
-      }
-    }
-
-    const clearFilters = () => {
-      searchTerm.value = ''
-      genderFilter.value = ''
-      ageFrom.value = ''
-      ageTo.value = ''
-      loadPatients()
-    }
-
-    return {
-      showAddForm,
-      editingPatient,
-      searchTerm,
-      genderFilter,
-      ageFrom,
-      ageTo,
-      patientForm,
-      patients,
-      loading,
-      savePatient,
-      editPatient,
-      cancelForm,
-      searchPatients,
-      clearFilters
-    }
+const loadPatients = async () => {
+  try {
+    patientsStore.setLoading(true)
+    const data = await patientService.getAllPatients()
+    console.log('Loaded patients:', data);
+    patientsStore.setPatients(data)
+  } catch (error) {
+    console.error('Error loading patients:', error)
+  } finally {
+    patientsStore.setLoading(false)
   }
 }
+
+
+const searchPatients = async () => {
+  try {
+    patientsStore.setLoading(true)
+    
+    // Start with all patients if no text search
+    let patientsData = []
+    if (searchTerm.value.trim()) {
+      // Determine if search term is OIB (11 digits) or name
+      const isOIB = /^\d{11}$/.test(searchTerm.value.trim())
+      if (isOIB) {
+        patientsData = await patientService.searchPatients(searchTerm.value.trim(), null)
+      } else {
+        patientsData = await patientService.searchPatients(null, searchTerm.value.trim())
+      }
+    } else {
+      patientsData = await patientService.getAllPatients()
+    }
+    
+    // Apply additional filters on the frontend
+    let filtered = patientsData
+    
+    // Filter by gender
+    if (genderFilter.value) {
+      filtered = filtered.filter(p => p.spol === genderFilter.value)
+    }
+    
+    
+    // Enhanced text search that includes first name
+    if (searchTerm.value.trim() && patientsData.length > 0) {
+      const searchLower = searchTerm.value.toLowerCase()
+      filtered = filtered.filter(p => {
+        const fullName = `${p.ime} ${p.prezime}`.toLowerCase()
+        const oib = p.oib || ''
+        return fullName.includes(searchLower) || 
+               oib.includes(searchLower) ||
+               p.ime.toLowerCase().includes(searchLower) ||
+               p.prezime.toLowerCase().includes(searchLower)
+      })
+    }
+    
+    patientsStore.setPatients(filtered)
+  } catch (error) {
+    console.error('Error searching patients:', error)
+  } finally {
+    patientsStore.setLoading(false)
+  }
+}
+
+const savePatient = async () => {
+  try {
+    if (editingPatient.value) {
+      const updated = await patientService.updatePatient(editingPatient.value.pacijentId, patientForm.value)
+      patientsStore.updatePatient(updated)
+    } else {
+      const newPatient = await patientService.createPatient(patientForm.value)
+      patientsStore.addPatient(newPatient)
+    }
+    cancelForm()
+  } catch (error) {
+    console.error('Error saving patient:', error)
+  }
+}
+
+const editPatient = (patient) => {
+  editingPatient.value = patient
+  patientForm.value = { ...patient }
+  showAddForm.value = false
+}
+
+const cancelForm = () => {
+  showAddForm.value = false
+  editingPatient.value = null
+  patientForm.value = {
+    ime: '',
+    prezime: '',
+    oib: '',
+    datumRodenja: '',
+    spol: ''
+  }
+}
+
+const clearFilters = () => {
+  searchTerm.value = ''
+  genderFilter.value = ''
+  loadPatients()
+}
+
+onMounted(async () => {
+  await loadPatients()
+})
 </script>
 
 <style scoped>
@@ -309,7 +257,7 @@ export default {
 
 .search-filters {
   display: grid;
-  grid-template-columns: 2fr 1fr 120px 120px auto;
+  grid-template-columns: 2fr 1fr auto;
   gap: 15px;
   align-items: center;
 }
@@ -320,16 +268,11 @@ export default {
 }
 
 .search-input,
-.filter-select,
-.age-input {
+.filter-select {
   padding: 8px;
   border: 1px solid #ddd;
   border-radius: 4px;
   font-size: 14px;
-}
-
-.age-input {
-  width: 100px;
 }
 
 @media (max-width: 768px) {
